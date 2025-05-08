@@ -1,15 +1,16 @@
 {{- if eq .Values.acm.enabled true }}
     {{- range .Values.subscriptions -}}
       {{- if eq .name "advanced-cluster-management" -}}
-        apiVersion: operator.open-cluster-management.io/v1
-        kind: MultiClusterHub
-        metadata:
-            name: multiclusterhub
-            namespace: {{ .namespace }}
-            annotations:
-                argocd.argoproj.io/sync-wave: "3"
-                argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
-        spec: {}
+---
+apiVersion: operator.open-cluster-management.io/v1
+kind: MultiClusterHub
+metadata:
+    name: multiclusterhub
+    namespace: {{ .namespace }}
+    annotations:
+        argocd.argoproj.io/sync-wave: "3"
+        argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec: {}
       {{- end -}}
     {{- end -}}
 {{- end }}
