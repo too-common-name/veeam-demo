@@ -3,6 +3,7 @@ subscriptions:
     namespace: open-cluster-management
     channel: release-2.13
     source: redhat-operators
+    namespaced: true
 
 acm:
   enabled: true
