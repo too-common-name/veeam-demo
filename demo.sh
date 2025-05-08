@@ -91,6 +91,11 @@ login_to_openshift() {
   echo -e "${GREEN} ✔ Successfully logged in to OpenShift.${NC}"
 }
 
+add_user_to_admins_group() {
+    oc adm groups new cluster-admins &>> /dev/null
+    oc adm groups add-users cluster-admins admin &>> /dev/null
+}
+
 install_argocd() {
     echo -e "${BLUE} ➜ Installing OpenShift GitOps operator...${NC}"
     oc apply -f argocd &>> $LOG_FILE
@@ -133,6 +138,7 @@ create_argocd_operators_app() {
 
 check_oc_installed
 login_to_openshift
+add_user_to_admins_group
 install_argocd
 check_pods "$GITOPS_NAMESPACE"
 handle_error "OpenShift GitOps operator pods in '$GITOPS_NAMESPACE' did not become ready. Check $LOG_FILE."
