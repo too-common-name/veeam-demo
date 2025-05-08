@@ -125,6 +125,12 @@ patch_argocd() {
   fi
 }
 
+create_argocd_operators_app() {
+    echo -e "${BLUE} ➜ Installing Operators on hub cluster using GitOps...${NC}"
+    oc apply -f argocd-apps &>> $LOG_FILE
+    handle_error "Failed to install Operators on hub cluster using GitOps"
+}
+
 check_oc_installed
 login_to_openshift
 install_argocd
@@ -132,3 +138,4 @@ check_pods "$GITOPS_NAMESPACE"
 handle_error "OpenShift GitOps operator pods in '$GITOPS_NAMESPACE' did not become ready. Check $LOG_FILE."
 patch_argocd
 handle_error "Failed to override ArgoCD health check" 
+create_argocd_operators_app
