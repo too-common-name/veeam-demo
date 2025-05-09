@@ -8,4 +8,4 @@ subscriptions:
 acm:
   enabled: true
 sealedsecrets:
-  enabled: true
+  enabled: false
