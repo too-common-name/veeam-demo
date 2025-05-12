@@ -1,13 +1,16 @@
 #!/bin/bash
 
 if [ $# -lt 3 ]; then
-  echo "Usage: $0 <OPENSHIFT_URL> <USERNAME> <PASSWORD> [cleanup]"
+  echo "Usage: $0 <HUB_OPENSHIFT_URL> <HUB_USERNAME> <HUB_PASSWORD> <MANAGED_OPENSHIFT_URL> <MANAGED_USERNAME> <MANAGED_PASSWORD>"
   exit 1
 fi
 
-OPENSHIFT_URL=$1
-USERNAME=$2
-PASSWORD=$3
+HUB_OPENSHIFT_URL=$1
+HUB_USERNAME=$2
+HUB_PASSWORD=$3
+MANAGED_OPENSHIFT_URL=$4
+MANAGED_USERNAME=$5
+MANAGED_PASSWORD=$6
 
 RED='\033[1;31m' 
 GREEN='\033[1;32m' 
@@ -40,7 +43,7 @@ check_pods() {
 
   while [ $attempts -lt $max_attempts ]; do
     local all_pods_output
-    all_pods_output=$(oc get pods -n "$namespace" --no-headers 2>/dev/null)
+    all_pods_output=$(oc get pods -n "$namespace" --no-headers 2>> $LOG_FILE)
 
     if [ -z "$all_pods_output" ]; then
       attempts=$((attempts + 1))
@@ -85,15 +88,18 @@ check_oc_installed() {
 }
 
 login_to_openshift() {
+  local url="$1"
+  local user="$2"
+  local pwd="$3"
   echo -e "${BLUE} ➜ Logging in to OpenShift...${NC}"
-  oc login "$OPENSHIFT_URL" -u "$USERNAME" -p "$PASSWORD" --insecure-skip-tls-verify &>> $LOG_FILE
+  oc login "$url" -u "$user" -p "$pwd" --insecure-skip-tls-verify &>> $LOG_FILE
   handle_error "Failed to log in to OpenShift"
   echo -e "${GREEN} ✔ Successfully logged in to OpenShift.${NC}"
 }
 
 add_user_to_admins_group() {
-    oc adm groups new cluster-admins &>> /dev/null
-    oc adm groups add-users cluster-admins admin &>> /dev/null
+    oc adm groups new cluster-admins &>> $LOG_FILE
+    oc adm groups add-users cluster-admins admin &>> $LOG_FILE
 }
 
 install_argocd() {
@@ -110,7 +116,7 @@ patch_argocd() {
   while [ $attempts -lt $max_patch_attempts ]; do
     echo -e "${BLUE} ➜ Attempting override ArgoCD health check (Attempt $((attempts + 1))/$max_patch_attempts)...${NC}"
     oc patch argocd openshift-gitops -n openshift-gitops --type=merge \
-    --patch-file ./patches/argocd-customization-patch.yaml &>> "$LOG_FILE"
+    --patch-file ./patches/argocd-customization-patch.yaml &>> $LOG_FILE
     
     if [ $? -eq 0 ]; then
       patch_successful=true
@@ -131,17 +137,53 @@ patch_argocd() {
 }
 
 create_argocd_operators_app() {
-    echo -e "${BLUE} ➜ Installing Operators on hub cluster using GitOps...${NC}"
-    oc apply -f argocd-apps &>> $LOG_FILE
-    handle_error "Failed to install Operators on hub cluster using GitOps"
+  echo -e "${BLUE} ➜ Installing Operators on hub cluster using GitOps...${NC}"
+  oc apply -f argocd-apps &>> $LOG_FILE
+  handle_error "Failed to install Operators on hub cluster using GitOps"
+}
+
+create_acm_managed_cluster_secret() {
+  local attempts=0
+  local max_patch_attempts=32
+  local import_successful=false
+
+  echo -e "${BLUE} ➜ Generating secret to import DR cluster in ACM...${NC}"
+  while [ $attempts -lt $max_patch_attempts ]; do
+    oc get ns/dr-cluster &>> $LOG_FILE
+    
+    if [ $? -eq 0 ]; then
+      login_to_openshift $MANAGED_OPENSHIFT_URL $MANAGED_USERNAME $MANAGED_PASSWORD &>> "$LOG_FILE"
+      local token=$(oc whoami -t)
+      login_to_openshift $HUB_OPENSHIFT_URL $HUB_USERNAME $HUB_PASSWORD &>> "$LOG_FILE"
+      oc create secret generic auto-import-secret --from-literal=autoImportRetry=5 \
+      --from-literal=server="$MANAGED_OPENSHIFT_URL" \
+      --from-literal=token="$token" &>> "$LOG_FILE" -n dr-cluster
+      handle_error "Unable to create secret to auto-import the managed cluster"
+      import_successful=true
+      break
+    else
+      echo -e "${YELLOW} ⚠ Warning: Import attempt $((attempts + 1)) failed."
+      attempts=$((attempts + 1))
+      sleep 10
+    fi
+  done
+
+  if $import_successful; then
+    echo -e "${GREEN} ✔ Managed cluster imported successfully!"
+    return 0
+  else
+    return 1
+  fi
 }
 
 check_oc_installed
-login_to_openshift
+login_to_openshift $HUB_OPENSHIFT_URL $HUB_USERNAME $HUB_PASSWORD
 add_user_to_admins_group
 install_argocd
 check_pods "$GITOPS_NAMESPACE"
 handle_error "OpenShift GitOps operator pods in '$GITOPS_NAMESPACE' did not become ready. Check $LOG_FILE."
 patch_argocd
-handle_error "Failed to override ArgoCD health check" 
+handle_error "Failed to override ArgoCD health check"
 create_argocd_operators_app
+create_acm_managed_cluster_secret
+handle_error "Failed to import managed cluster"
