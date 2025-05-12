@@ -18,3 +18,7 @@ spec:
     automated:
       prune: true
       selfHeal: true
+  ignoreDifferences:
+    - group: "" 
+      kind: Secret
+      name: dr-cluster-application-manager-cluster-secret
