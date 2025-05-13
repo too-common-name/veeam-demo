@@ -1,4 +1,5 @@
 spec:
+  resourceTrackingMethod: annotation
   extraConfig:
     resource.customizations: |
       operators.coreos.com/Subscription:
