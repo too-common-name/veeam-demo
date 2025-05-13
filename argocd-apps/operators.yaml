@@ -8,17 +8,20 @@ spec:
     server: 'https://kubernetes.default.svc'
   project: default
   source:
-    path: operators
+    path: operators/hub
     repoURL: 'https://github.com/too-common-name/veeam-demo.git'
     targetRevision: HEAD
     helm:
       valueFiles:
         - values.yaml
   syncPolicy:
+    syncOptions:
+    - RespectIgnoreDifferences=true
     automated:
       prune: true
       selfHeal: true
   ignoreDifferences:
-    - group: "" 
-      kind: Secret
+    - kind: Secret
+      group: ''
       name: dr-cluster-application-manager-cluster-secret
+      namespace: openshift-gitops
