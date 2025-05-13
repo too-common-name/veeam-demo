@@ -157,7 +157,7 @@ create_acm_managed_cluster_secret() {
       login_to_openshift $HUB_OPENSHIFT_URL $HUB_USERNAME $HUB_PASSWORD &>> "$LOG_FILE"
       oc create secret generic auto-import-secret --from-literal=autoImportRetry=5 \
       --from-literal=server="$MANAGED_OPENSHIFT_URL" \
-      --from-literal=token="$token" &>> "$LOG_FILE" -n dr-cluster
+      --from-literal=token="$token" -n dr-cluster &>> "$LOG_FILE"
       handle_error "Unable to create secret to auto-import the managed cluster"
       import_successful=true
       break
@@ -186,4 +186,4 @@ patch_argocd
 handle_error "Failed to override ArgoCD health check"
 create_argocd_operators_app
 create_acm_managed_cluster_secret
-handle_error "Failed to import managed cluster"
+handle_error "Failed to create secret for managed cluster"
