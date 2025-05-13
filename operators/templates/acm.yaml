@@ -89,18 +89,6 @@ spec:
     kind: Placement
     apiVersion: cluster.open-cluster-management.io/v1beta1
     name: default-gitops-placement
----
-apiVersion: v1
-data:
-  config: YXV0b19maWxsZWQK # notsecret
-  name: YXV0b19maWxsZWQK # notsecret
-  server: YXV0b19maWxsZWQK # notsecret
-kind: Secret
-metadata:
-  name: dr-cluster-application-manager-cluster-secret
-  namespace: openshift-gitops
-type: Opaque
-
       {{- end -}}
     {{- end -}}
 {{- end }}
