@@ -1,0 +1,11 @@
+subscriptions:
+  - name: k10-kasten-operator-rhmp
+    namespace: kasten-io
+    channel: stable
+    source: redhat-marketplace
+    namespaced: true
+
+acm:
+  enabled: false
+sealedsecrets:
+  enabled: false

@@ -1,0 +1,22 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: global-operators
+  namespace: openshift-gitops
+spec:
+  generators:
+  - clusters: {} 
+  template:
+    metadata:
+      name: '{{.name}}-operators'
+    spec:
+      project: default
+      source:
+        path: operators/hub
+        repoURL: 'https://github.com/too-common-name/veeam-demo.git'
+        targetRevision: HEAD
+        helm:
+          valueFiles:
+            - global-values.yaml
+      destination:
+        server: '{{.server}}'
