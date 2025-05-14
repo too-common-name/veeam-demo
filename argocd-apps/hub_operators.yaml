@@ -8,7 +8,7 @@ spec:
     server: 'https://kubernetes.default.svc'
   project: default
   source:
-    path: operators/hub
+    path: operators
     repoURL: 'https://github.com/too-common-name/veeam-demo.git'
     targetRevision: HEAD
     helm:
