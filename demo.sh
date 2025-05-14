@@ -138,7 +138,7 @@ patch_argocd() {
 
 create_argocd_operators_app() {
   echo -e "${BLUE} ➜ Installing Operators on hub cluster using GitOps...${NC}"
-  oc apply -f argocd-apps &>> $LOG_FILE
+  oc apply -f argocd-apps/hub_operators.yaml &>> $LOG_FILE
   handle_error "Failed to install Operators on hub cluster using GitOps"
 }
 
@@ -176,6 +176,12 @@ create_acm_managed_cluster_secret() {
   fi
 }
 
+create_argocd_global_app() {
+  echo -e "${BLUE} ➜ Installing Operators on all clusters using GitOps...${NC}"
+  oc apply -f argocd-apps/global_operators.yaml &>> $LOG_FILE
+  handle_error "Failed to install Operators on all clusters using GitOps"
+}
+
 check_oc_installed
 login_to_openshift $HUB_OPENSHIFT_URL $HUB_USERNAME $HUB_PASSWORD
 add_user_to_admins_group
@@ -187,3 +193,4 @@ handle_error "Failed to override ArgoCD health check"
 create_argocd_operators_app
 create_acm_managed_cluster_secret
 handle_error "Failed to create secret for managed cluster"
+create_argocd_global_app
