@@ -144,33 +144,6 @@ patch_argocd() {
   fi
 }
 
-bioc_resource_creation() {
-  mkdir "$KEYSFOLDER" &>> $LOG_FILE
-  openssl req -x509 -days 365 -nodes -newkey rsa:4096 -keyout "$PRIVATEKEY" -out "$PUBLICKEY" -subj "/CN=sealed-secret/O=sealed-secret" &>> $LOG_FILE
-  oc new-project sealed-secrets &>> $LOG_FILE
-  oc -n "$SEALED_SECRETS_NAMESPACE" create secret tls "$SECRETNAME" --cert="$PUBLICKEY" --key="$PRIVATEKEY" &>> $LOG_FILE
-  oc -n "$SEALED_SECRETS_NAMESPACE" label secret "$SECRETNAME" sealedsecrets.bitnami.com/sealed-secrets-key=active &>> $LOG_FILE
-}
-
-generate_sealed_secrets() {
-  echo "{{- if eq .Values.acm.enabled true }}" > "$AUTOIMPORT_SEALED_SECRET" 2>> $LOG_FILE
-  cat secrets_stub/auto-import.yaml | kubeseal --cert "$PUBLICKEY" --format yaml >> "$AUTOIMPORT_SEALED_SECRET" 2>> $LOG_FILE
-  handle_error "Failed to generate auto-import sealed secret"
-  echo "{{- end }}" >> "$AUTOIMPORT_SEALED_SECRET" 2>> $LOG_FILE
-  echo "{{- if eq .Values.kasten.enabled true }}" > "$S3_KASTEN_SEALED_SECRET" 2>> $LOG_FILE
-  cat secrets_stub/auto-import.yaml | kubeseal --cert "$PUBLICKEY" --format yaml >> "$S3_KASTEN_SEALED_SECRET" 2>> $LOG_FILE
-  handle_error "Failed to generate s3-kasten sealed secret"
-  echo "{{- end }}" >> "$S3_KASTEN_SEALED_SECRET" 2>> $LOG_FILE
-}
-
-push_sealed_secrets() {
-  git add "$S3_KASTEN_SEALED_SECRET" &>> $LOG_FILE
-  git add "$AUTOIMPORT_SEALED_SECRET" &>> $LOG_FILE
-  git commit -m "chore(automatic): add sealed secrets" &>> $LOG_FILE
-  handle_error "Failed to commit sealed secret" &>> $LOG_FILE
-  git push &>> $LOG_FILE
-  handle_error "Failed to push sealed secret"
-}
 
 create_argocd_operators_app() {
   echo -e "${BLUE} ➜ Installing Operators on hub cluster using GitOps...${NC}"
@@ -212,6 +185,48 @@ create_acm_managed_cluster_secret() {
   fi
 }
 
+bioc_resource_creation() {
+  local url="$1"
+  local user="$2"
+  local pwd="$3"
+  local cluster_name="$4"
+  echo -e "${BLUE} ➜ Generating keys for sealed secret controller...${NC}"
+  mkdir "$KEYSFOLDER" &>> $LOG_FILE
+  openssl req -x509 -days 365 -nodes -newkey rsa:4096 -keyout "$PRIVATEKEY" -out "$PUBLICKEY" -subj "/CN=sealed-secret/O=sealed-secret" &>> $LOG_FILE
+  echo -e "${BLUE} ➜ Creating key secret for sealed secret controller in cluster ${clustername}...${NC}"
+  login_to_openshift $url $user $pwd &>> "$LOG_FILE"
+  oc new-project sealed-secrets &>> $LOG_FILE
+  oc -n "$SEALED_SECRETS_NAMESPACE" delete secret "$SECRETNAME" --ignore-not-found &>> $LOG_FILE
+  oc -n "$SEALED_SECRETS_NAMESPACE" create secret tls "$SECRETNAME" --cert="$PUBLICKEY" --key="$PRIVATEKEY" &>> $LOG_FILE
+  handle_error "Failed to create secret for sealed secret controller"
+  oc -n "$SEALED_SECRETS_NAMESPACE" label secret "$SECRETNAME" sealedsecrets.bitnami.com/sealed-secrets-key=active &>> $LOG_FILE
+  handle_error "Failed to label secret for sealed secret controller"
+}
+
+create_sealed_secrets_global_app() {
+  echo -e "${BLUE} ➜ Installing sealed secrets on all clusters using GitOps...${NC}"
+  oc apply -f argocd-apps/global_sealedsecrets.yaml &>> $LOG_FILE
+  handle_error "Failed to install sealed secrets on all clusters using GitOps"
+}
+
+generate_sealed_secrets() {
+  echo -e "${BLUE} ➜ Generating S3 sealed secret for Kasten...${NC}"
+  echo "{{- if eq .Values.kasten.enabled true }}" > "$S3_KASTEN_SEALED_SECRET" 2>> $LOG_FILE
+  cat secrets_stub/s3-kasten.yaml | kubeseal --cert "$PUBLICKEY" --format yaml >> "$S3_KASTEN_SEALED_SECRET" 2>> $LOG_FILE
+  handle_error "Failed to generate s3-kasten sealed secret"
+  echo "{{- end }}" >> "$S3_KASTEN_SEALED_SECRET" 2>> $LOG_FILE
+}
+
+push_sealed_secrets() {
+  echo -e "${BLUE} ➜ Pushing S3 sealed secret for Kasten on github...${NC}"
+  git add "$S3_KASTEN_SEALED_SECRET" &>> $LOG_FILE
+  git add "$AUTOIMPORT_SEALED_SECRET" &>> $LOG_FILE
+  git commit -m "chore(automatic): add kasten sealed secrets" &>> $LOG_FILE
+  handle_error "Failed to commit sealed secret" &>> $LOG_FILE
+  git push &>> $LOG_FILE
+  handle_error "Failed to push sealed secret"
+}
+
 create_operator_global_app() {
   echo -e "${BLUE} ➜ Installing Operators on all clusters using GitOps...${NC}"
   oc apply -f argocd-apps/global_operators.yaml &>> $LOG_FILE
@@ -232,11 +247,14 @@ check_pods "$GITOPS_NAMESPACE"
 handle_error "OpenShift GitOps operator pods in '$GITOPS_NAMESPACE' did not become ready. Check $LOG_FILE."
 patch_argocd
 handle_error "Failed to override ArgoCD health check"
-bioc_resource_creation
-generate_sealed_secrets
-push_sealed_secrets
 create_argocd_operators_app
-# create_acm_managed_cluster_secret
+create_acm_managed_cluster_secret
 handle_error "Failed to create secret for managed cluster"
+bioc_resource_creation $MANAGED_OPENSHIFT_URL $MANAGED_USERNAME $MANAGED_PASSWORD
+bioc_resource_creation $HUB_OPENSHIFT_URL $HUB_USERNAME $HUB_PASSWORD
+create_sealed_secrets_global_app
+check_pods "$SEALED_SECRETS_NAMESPACE"
+generate_sealed_secrets 
+push_sealed_secrets
 create_operator_global_app
 create_pacman_app

@@ -1,6 +1,3 @@
-sealedsecrets:
-  enabled: true
-  
 subscriptions:
   - name: k10-kasten-operator-rhmp
     namespace: kasten-io
