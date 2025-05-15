@@ -1,3 +1,6 @@
+sealedsecrets:
+  enabled: true
+
 subscriptions:
   - name: advanced-cluster-management
     namespace: open-cluster-management
@@ -7,5 +10,5 @@ subscriptions:
 
 acm:
   enabled: true
-sealedsecrets:
+kasten:
   enabled: false

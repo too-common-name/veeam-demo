@@ -2,3 +2,5 @@
 deployment.log
 
 secrets_stub/
+
+sealed-secrets-key/
