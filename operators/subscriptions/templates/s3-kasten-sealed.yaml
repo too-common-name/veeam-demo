@@ -1,0 +1,19 @@
+{{- if eq .Values.kasten.enabled true }}
+apiVersion: bitnami.com/v1alpha1
+kind: SealedSecret
+metadata:
+  creationTimestamp: null
+  name: k10-awss3-demo-kasten-backup-secret
+  namespace: kasten-io
+spec:
+  encryptedData:
+    aws_access_key_id: AgBpLq6hJtzUgHewgRKaz7aIpXWYOCz+S/izHQw9pIobRZMRaV6CGqm4WpQHQRqtjhTq4An1Qc7c4q1M2buG9mpnjgbuJJDMxLEREj71YMyj3khsuQt5wlt2EKhEpKxDoAD0jQeLgxZF8br4kT1EACzLZcOTmUtcXu6wGnx72i9WFmgjoscdL/QIva6if8jIOoQ1xMP2aFBwEE72BcIAg2WPkfNrc5DWRMsPti1OI+UiiGmTVOXOl8C9zV51NZ3tmUUL9hxOPRDix6O7o8P/36KYZowMC6Q+DbYIw2SWsdAFFgFFt8DquEtcx6WPGejug4li+LUtvV2x9FpeXIQcA6QbXk7p82Qm8njdyZ94vJ7yzwiyQ6LepGlAyc1GT5J+OCrhlwzzV952+8JAKU16snmG56O0v3wRbyll6HrFrimqhpluCtokhwoJRTeYWSu6iW3T0gqOXrHni78UfL3Kh5CD4WFVhZmNrMh+8uMZ6ufi62yJjtB8aG9KqE+i04oHT+mWiliFTyW4OFvaDdGJ7IzS0qjb8TyytBeuxTWzyiElQz46seaO5T8aDm+FsF3nd+lIvAdUNTO2HtU3ndnr/mwJD35U1IBz1Y++tVMKpuAyhiSd9p6cG1rfAoZRBs+EO4N0eGZBHv+tL9qOGpGrNwaRrK/fAfiuV6XCo1NLjDOBE7vkgpiy1D2AgXKSHnu6MyjWeAyf/6mgcNN9W4fchcoSZuNMslo=
+    aws_secret_access_key: AgC9I/+wqeapfq1QsbEn3UBDud+6H0VkcEouQoMn2KE6T/S3lNm+AHltfjS+CviCi26rZR7wCFRzeujmdrPXVZfTW58BrhVnil0r4ZCG9cEVo7a6bm+aw3ErDk0yLqtJbL4n/VJFOW1L2dQ7k0ZED87dPv/vIN2+Qv/1v9svi3YAlJvi3abciTLItwccTtPoWvYlCDz1EvHpjP5w8d07X2xJbqdejVwRrDccw3ajuVL9D/AlDtBiYLglo8V85C9NLfFehSMWaBk/mSFJpLln9SvRi6nFstLEMezziuTo+pB+xXvjcZcZKH5j9145rkzzRAsO9Jm+38e9HTTP3pmJck9dkhCV1CbQtw3zNsj5lwS2/SwQQByLnSU2tXqoJw9wAdis4mGC9jWV99v8v9thm9J68u/ykEsIPP/s0adwzq/swHs/DPcJ+Dw2nKzBnLhyzLykiguksd0XgTPIR0SC5IPXXKyVtDtZSiTvFC7KaOi+35DNLXdMMIxCGul3uhaYX5FkH/BTMAOjEK0bpYmi9qCUimLaJXrbC5GEBFA8D2GlSqI1ZHRLNiccbLAyhqfvhIjczKlKucLh05FJXyPrHQcr4X4TVfBil/o2scrBfvhSoIaVCnv3chpS7Ilwxomg1R1wWLtAWMmOHdByAtumw+DzRRZU++7czuqUqMHYDuw6DWDAVw3fghJ4wUVbMTaYLMqJxf4gVEwpjYEofOLVEzTIpWnoiFnz1T7ec0Cr+hCJ9OBXQuLoxm+u9Q==
+  template:
+    metadata:
+      creationTimestamp: null
+      name: k10-awss3-demo-kasten-backup-secret
+      namespace: kasten-io
+    type: secrets.kanister.io/aws
+
+{{- end }}
