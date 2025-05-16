@@ -4,3 +4,5 @@ deployment.log
 sealed-secrets-key/
 
 secrets_stub/s3-kasten.yaml
+
+secrets_stub/vm-cred.yaml
