@@ -50,18 +50,18 @@ metadata:
     argocd.argoproj.io/sync-wave: "3"
     argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 spec:
-  type: Location
   locationSpec:
-    credential:
-      secretType: AwsAccessKey
-      secret:
-        apiVersion: v1
-        kind: Secret
-        name: "k10-awss3-{{ .Values.kasten.bucket_name }}-secret"
-        namespace: kasten-io
     type: ObjectStore
     objectStore:
       name: "{{ .Values.kasten.bucket_name }}"
       objectStoreType: S3
       region: "{{ .Values.kasten.bucket_region }}"
+    credential:
+      secretType: AwsAccessKey
+      secret:
+        apiVersion: v1
+        kind: secret
+        name: "k10-awss3-{{ .Values.kasten.bucket_name }}-secret"
+        namespace: kasten-io
+  type: Location
 {{- end }}
