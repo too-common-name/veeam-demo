@@ -1,0 +1,36 @@
+{{- if .Values.kasten.enabled }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: k10-eula-info
+  namespace: kasten-io
+data:
+  accepted: "true"
+  company: '{{ .Values.kasten.company }}'
+  email: '{{ .Values.kasten.email }}'
+---
+apiVersion: config.kio.kasten.io/v1alpha1
+kind: Profile
+metadata:
+  name: "profile-awss3-{{ .Values.kasten.bucket_name }}"
+  namespace: kasten-io
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  type: Location
+  locationSpec:
+    credential:
+      secretType: AwsAccessKey
+      secret:
+        apiVersion: v1
+        kind: Secret
+        name: "k10-awss3-{{ .Values.kasten.bucket_name }}-secret"
+        namespace: kasten-io
+    type: ObjectStore
+    objectStore:
+      name: "{{ .Values.kasten.bucket_name }}"
+      objectStoreType: S3
+      region: "{{ .Values.kasten.bucket_region }}"
+{{- end }}
