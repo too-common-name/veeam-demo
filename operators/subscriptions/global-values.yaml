@@ -9,3 +9,7 @@ acm:
   enabled: false
 kasten:
   enabled: true
+  company: 'Red Hat'
+  email: 'drossi@redhat.com'
+  bucket_name: 'demo-kasten-backup'
+  bucket_region: 'eu-north-1'
