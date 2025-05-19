@@ -89,27 +89,16 @@ metadata:
 spec:
   comment: Backup vm created using gitops
   frequency: "@hourly"
-  paused: false
   actions:
     - action: backup
     - action: export
       exportParameters:
         frequency: "@hourly"
-        migrationToken:
-          name: ""
-          namespace: ""
         profile:
           name: profile-awss3-demo-kasten-backup
           namespace: kasten-io
-        receiveString: ""
         exportData:
           enabled: true
-      retention:
-        hourly: 0
-        daily: 0
-        weekly: 0
-        monthly: 0
-        yearly: 0
   retention:
     hourly: 24
     daily: 7
