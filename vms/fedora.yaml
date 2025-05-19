@@ -20,16 +20,14 @@ spec:
     metadata:
       name: fedora-gitops
     spec:
-      pvc:
-        accessModes:
-        - ReadWriteMany
+      sourceRef:
+        kind: DataSource
+        name: fedora
+        namespace: openshift-virtualization-os-images
+      storage:
         resources:
           requests:
             storage: 30Gi
-      source:
-        pvc:
-          name: fedora
-          namespace: openshift-virtualization-os-images
   running: true
   template:
     metadata:
