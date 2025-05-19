@@ -30,6 +30,8 @@ PUBLICKEY="$KEYSFOLDER/mytls.crt"
 SEALED_SECRETS_NAMESPACE="sealed-secrets"
 SECRETNAME="mycustomkeys"
 S3_KASTEN_SEALED_SECRET="./operators/subscriptions/templates/s3-kasten-sealed.yaml"
+VM_CLOUDINIT_SEALED_SECRET="./vms/fedora-cloudinit-sealed-secret"
+SKIP_KEY_GEN=false
 
 handle_error() {
   local exit_code=${2:-$?}
@@ -54,7 +56,7 @@ check_pods() {
 
     if [ -z "$all_pods_output" ]; then
       attempts=$((attempts + 1))
-      echo -e "${YELLOW}⚠️ No pods found in $namespace. New attempt in 10 seconds... ($attempts/$max_attempts)"
+      echo -e "${YELLOW}⚠️  No pods found in $namespace. New attempt in 10 seconds... ($attempts/$max_attempts)"
       sleep 10
     else
         local total_pods
@@ -72,7 +74,7 @@ check_pods() {
 
           attempts=$((attempts + 1))
           if [ $attempts -lt $max_attempts ]; then
-            echo -e "${YELLOW}⚠️ New attempt in 10 seconds... ($attempts/$max_attempts)"
+            echo -e "${YELLOW}⚠️  New attempt in 10 seconds... ($attempts/$max_attempts)"
             sleep 10
           fi
         fi
@@ -104,7 +106,7 @@ check_argocd_sync() {
       echo -e "${GREEN}✅ ArgoCD $resource_type '$resource_name' is Synced!"
       return 0
     else
-      echo -e "${YELLOW}⚠️ $resource_type '$resource_name' is not Synced (status: $sync_status). Retrying in 10 seconds... ($((attempts+1))/$max_attempts)"
+      echo -e "${YELLOW}⚠️  $resource_type '$resource_name' is not Synced (status: $sync_status). Retrying in 10 seconds... ($((attempts+1))/$max_attempts)"
       attempts=$((attempts + 1))
       sleep 10
     fi
@@ -121,17 +123,17 @@ check_for_argocd_cluster_secrets() {
   local max_attempts=42
   local interval=10
 
-  echo "${BLUE}🔄 Waiting for both ArgoCD cluster secrets to be present..."
+  echo -e "${BLUE}🔄 Waiting for both ArgoCD cluster secrets to be present..."
 
   while [ $attempts -lt $max_attempts ]; do
     output=$(oc get secret -n "$namespace" --selector argocd.argoproj.io/secret-type='cluster' -o name 2>/dev/null)
 
     if echo "$output" | grep -q "$expected_secret_1" && echo "$output" | grep -q "$expected_secret_2"; then
-      echo "${GREEN}✅ Both ArgoCD cluster secrets are present."
+      echo -e "${YELLOW}⚠️  Both ArgoCD cluster secrets are present."
       return 0
     fi
 
-    echo "⏳ Secrets not ready yet. Attempt $((attempts+1))/$max_attempts. Retrying in ${interval}s..."
+    echo -e "${YELLOW}⚠️  Secrets not ready yet. Attempt $((attempts+1))/$max_attempts. Retrying in ${interval}s..."
     attempts=$((attempts + 1))
     sleep "$interval"
   done
@@ -182,7 +184,7 @@ patch_argocd() {
       patch_successful=true
       break
     else
-      echo -e "${YELLOW}⚠️ Warning: Patch attempt $((attempts + 1)) failed."
+      echo -e "${YELLOW}⚠️  Warning: Patch attempt $((attempts + 1)) failed."
       attempts=$((attempts + 1))
       sleep 5
     fi
@@ -223,7 +225,7 @@ create_acm_managed_cluster_secret() {
       import_successful=true
       break
     else
-      echo -e "${YELLOW}⚠️ Warning: Import attempt $((attempts + 1)) failed."
+      echo -e "${YELLOW}⚠️  Warning: Import attempt $((attempts + 1)) failed."
       attempts=$((attempts + 1))
       sleep 10
     fi
@@ -237,21 +239,29 @@ create_acm_managed_cluster_secret() {
   fi
 }
 
+bioc_key_generation() {
+  if [[ -f "$PRIVATEKEY" && -f "$PUBLICKEY" ]]; then
+    echo -e "${YELLOW}⚠️  Key files already exist, skipping generation.${NC}"
+    SKIP_KEY_GEN=true
+    return
+  fi
+
+  echo -e "${BLUE}🔄 Generating keys for sealed secret controller...${NC}"
+  mkdir -p "$KEYSFOLDER" &>> $LOG_FILE
+  openssl req -x509 -days 365 -nodes -newkey rsa:4096 -keyout "$PRIVATEKEY" -out "$PUBLICKEY" -subj "/CN=sealed-secret/O=sealed-secret" &>> $LOG_FILE
+}
+
 bioc_resource_creation() {
+  if [[ "$SKIP_KEY_GEN" == true ]]; then
+    echo -e "${YELLOW}⚠️  Skipping resource creation for sealed secret controller because keys already exist.${NC}"
+    return
+  fi
+
   local url="$1"
   local user="$2"
   local pwd="$3"
   local cluster_name="$4"
-
-  if [[ -f "$PRIVATEKEY" && -f "$PUBLICKEY" ]]; then
-    echo -e "${YELLOW}⚠️ Keys already exist at $PRIVATEKEY and $PUBLICKEY. Skipping sealed secrets setup.${NC}" | tee -a "$LOG_FILE"
-    return 0
-  fi
-
-  echo -e "${BLUE}🔄 Generating keys for sealed secret controller...${NC}"
-  mkdir "$KEYSFOLDER" &>> $LOG_FILE
-  openssl req -x509 -days 365 -nodes -newkey rsa:4096 -keyout "$PRIVATEKEY" -out "$PUBLICKEY" -subj "/CN=sealed-secret/O=sealed-secret" &>> $LOG_FILE
-  echo -e "${BLUE}🔄 Creating key secret for sealed secret controller in cluster ${clustername}...${NC}"
+  echo -e "${BLUE}🔄 Creating key secret for sealed secret controller in cluster ${cluster_name}...${NC}"
   login_to_openshift $url $user $pwd &>> "$LOG_FILE"
   oc new-project sealed-secrets &>> $LOG_FILE
   oc -n "$SEALED_SECRETS_NAMESPACE" delete secret "$SECRETNAME" --ignore-not-found &>> $LOG_FILE
@@ -259,9 +269,9 @@ bioc_resource_creation() {
   handle_error "Failed to create secret for sealed secret controller"
   oc -n "$SEALED_SECRETS_NAMESPACE" label secret "$SECRETNAME" sealedsecrets.bitnami.com/sealed-secrets-key=active &>> $LOG_FILE
   handle_error "Failed to label secret for sealed secret controller"
-  if oc get pod -n "$SEALED_SECRETS_NAMESPACE" -l app.kubernetes.io/instance=sealed-secrets --no-headers 2>/dev/null | grep -q .; then
-    echo "${BLUE}🔄 Restarting sealed-secrets controller pod..."
-    oc -n "$SEALED_SECRETS_NAMESPACE" delete pod -l app.kubernetes.io/instance=sealed-secrets &>> $LOG_FILE
+  if oc get pod -n "$SEALED_SECRETS_NAMESPACE" -l name=sealed-secrets-controller --no-headers 2>/dev/null | grep -q .; then
+    echo -e "${BLUE}🔄 Restarting sealed-secrets controller pod..."
+    oc -n "$SEALED_SECRETS_NAMESPACE" delete pod -l name=sealed-secrets-controller &>> $LOG_FILE
   fi
 }
 
@@ -277,13 +287,16 @@ generate_sealed_secrets() {
   cat secrets_stub/s3-kasten.yaml | kubeseal --cert "$PUBLICKEY" --format yaml >> "$S3_KASTEN_SEALED_SECRET" 2>> $LOG_FILE
   handle_error "Failed to generate s3-kasten sealed secret"
   echo "{{- end }}" >> "$S3_KASTEN_SEALED_SECRET" 2>> $LOG_FILE
+  echo -e "${BLUE}🔄 Generating VM user data sealed secret...${NC}"
+  cat secrets_stub/vm-cred.yaml | kubeseal --cert "$PUBLICKEY" --format yaml > "$VM_CLOUDINIT_SEALED_SECRET" 2>> $LOG_FILE
+  handle_error "Failed to generate VM user data sealed secret"
 }
 
 push_sealed_secrets() {
   echo -e "${BLUE}🔄 Pushing S3 sealed secret for Kasten on github...${NC}"
   git add "$S3_KASTEN_SEALED_SECRET" &>> $LOG_FILE
-  git add "$AUTOIMPORT_SEALED_SECRET" &>> $LOG_FILE
-  git commit -m "chore(automatic): add kasten sealed secrets" &>> $LOG_FILE
+  git add "$VM_CLOUDINIT_SEALED_SECRET" &>> $LOG_FILE
+  git commit -m "chore(automatic): add kasten and vm sealed secrets" &>> $LOG_FILE
   handle_error "Failed to commit sealed secret" &>> $LOG_FILE
   git push &>> $LOG_FILE
   handle_error "Failed to push sealed secret"
@@ -295,10 +308,10 @@ create_operator_global_app() {
   handle_error "Failed to install Operators on all clusters using GitOps"
 }
 
-create_pacman_app() {
-  echo -e "${BLUE}🔄 Installing Pacman on Hub cluster using GitOps...${NC}"
-  oc apply -f argocd-apps/hub_pacman.yaml &>> $LOG_FILE
-  handle_error "Failed to install Pacman on Hub cluster using GitOps"
+create_vm_app(){
+  echo -e "${BLUE}🔄 Creating Fedora VM using GitOps...${NC}"
+  oc apply -f argocd-apps/vm_application.yaml &>> $LOG_FILE
+  handle_error "Failed to create Fedora VM using GitOps"
 }
 
 check_oc_installed
@@ -319,6 +332,7 @@ handle_error "Failed to create secret for managed cluster."
 check_argocd_sync "openshift-gitops" "applications.argoproj.io" "cluster-config"
 handle_error "Timeout: ArgoCD Application 'cluster-config' in namespace 'openshift-gitops' did not become Healthy. Check $LOG_FILE."
 
+bioc_key_generation
 bioc_resource_creation $MANAGED_OPENSHIFT_URL $MANAGED_USERNAME $MANAGED_PASSWORD
 bioc_resource_creation $HUB_OPENSHIFT_URL $HUB_USERNAME $HUB_PASSWORD
 
@@ -339,4 +353,4 @@ generate_sealed_secrets
 push_sealed_secrets
 
 create_operator_global_app
-create_pacman_app
+create_vm_app
