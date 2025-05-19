@@ -1,0 +1,17 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: restore-vm
+  namespace: openshift-gitops
+spec:
+  destination:
+    server: dr-cluster
+  project: default
+  source:
+    path: restore
+    repoURL: https://github.com/too-common-name/veeam-demo.git
+    targetRevision: HEAD
+    syncPolicy:
+      automated:
+        prune: true
+        selfHeal: true
