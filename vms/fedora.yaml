@@ -11,8 +11,8 @@ metadata:
     vm.kubevirt.io/template: fedora-server-small
     vm.kubevirt.io/template.revision: "1"
     vm.kubevirt.io/template.version: v0.14.0
-  name: vm-gitops
-  namespace: openshift-gitops
+  name: fedora-gitops
+  namespace: vm-gitops
 spec:
   dataVolumeTemplates:
   - apiVersion: cdi.kubevirt.io/v1beta1
