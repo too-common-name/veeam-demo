@@ -16,7 +16,7 @@ metadata:
   annotations:
     helm.sdk.operatorframework.io/reconcile-period: 2m
     helm.sdk.operatorframework.io/rollback-force: 'false'
-    argocd.argoproj.io/sync-wave: "1"
+    argocd.argoproj.io/sync-wave: "3"
     argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
   name: k10
   namespace: kasten-io
@@ -47,7 +47,7 @@ metadata:
   name: "profile-awss3-{{ .Values.kasten.bucket_name }}"
   namespace: kasten-io
   annotations:
-    argocd.argoproj.io/sync-wave: "3"
+    argocd.argoproj.io/sync-wave: "4"
     argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 spec:
   locationSpec:
