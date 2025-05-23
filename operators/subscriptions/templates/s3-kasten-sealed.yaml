@@ -3,7 +3,7 @@ apiVersion: bitnami.com/v1alpha1
 kind: SealedSecret
 metadata:
   creationTimestamp: null
-  name: k10-awss3-demo-kasten-backup-secret
+  name: k10-awss3-webinar-kasten-backup-secret
   namespace: kasten-io
 spec:
   encryptedData:
@@ -15,7 +15,7 @@ spec:
         argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
         argocd.argoproj.io/sync-wave: "2"
       creationTimestamp: null
-      name: k10-awss3-demo-kasten-backup-secret
+      name: k10-awss3-webinar-kasten-backup-secret
       namespace: kasten-io
     type: secrets.kanister.io/aws
 
