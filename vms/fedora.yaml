@@ -88,14 +88,14 @@ metadata:
     argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 spec:
   comment: Backup vm created using gitops
-  frequency: "@hourly"
+  frequency: "@onDemand"
   actions:
     - action: backup
     - action: export
       exportParameters:
-        frequency: "@hourly"
+        frequency: "@onDemand"
         profile:
-          name: profile-awss3-demo-kasten-backup
+          name: profile-awss3-webinar-kasten-backup
           namespace: kasten-io
         exportData:
           enabled: true
