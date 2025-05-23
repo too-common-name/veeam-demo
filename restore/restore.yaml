@@ -9,7 +9,7 @@ spec:
     - action: import
       importParameters:
         profile:
-          name: profile-awss3-demo-kasten-backup
+          name: profile-awss3-webinar-kasten-backup
           namespace: kasten-io
         receiveString: ""
     - action: restore
