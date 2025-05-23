@@ -11,6 +11,6 @@ spec:
         profile:
           name: profile-awss3-demo-kasten-backup
           namespace: kasten-io
-        receiveString: bIzAPpoanmEr4TVOnThAgcp3amA5IxSV0BycxGgiN8wXGfsaj3iPX4baOcCHl8sZGgfezKuNGU+u7zELhTr90zgojCgTKqWBUZSL0c6x5cLQs6Yv7iR6EEub/ovLP7ZiAN0Ohx11/rh8mbOQ7Nzr6kyUP/7kxU5KxH7tMQ+fx9ee9aAMXhS7vXjQq3vgDAokpLd4QbKAnGpy00o3MTiL9929XXSzHSjrpihH94zbaJdioYyeZS3AdosMu6SFyo31IsmQJOSXZ8JmTXWwsFloqTfIo7vTZ+vG2AeWMnN4WWBHT2DC+T9wxyf5/J3S9N1lhhRiI4sYziMMl8wrzWfNVbZL9OQMP05budp9icH+8/701UjAi46B63osmEzw2HkrrImpNZccz/+uGiltgJukegarg70HGdDOt1DtkMhkOTlWkPZAM8jOOWVlEVXGkuW5fEaW/rsgdOv9DAATqAA6CS2ynZY1vvpQfHK4em9tuI4WvlAdzlqSEghcJGFZTdK/1baFfRrHiCJopd1CtAqujSRCtKxhBuJPcfFyZFLfjq68suilb/B2
+        receiveString: ""
     - action: restore
       restoreParameters: {}
