@@ -4,12 +4,11 @@ subscriptions:
     channel: stable
     source: redhat-marketplace
     namespaced: true
-
 acm:
   enabled: false
 kasten:
   enabled: true
   company: 'Red Hat'
   email: 'drossi@redhat.com'
-  bucket_name: 'webinar-kasten-backup'
+  bucket_name: 'test-kasten-backup'
   bucket_region: 'eu-north-1'
