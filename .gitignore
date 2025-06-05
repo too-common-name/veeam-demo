@@ -8,3 +8,5 @@ secrets_stub/s3-kasten.yaml
 secrets_stub/vm-cred.yaml
 
 aws-automations/vars/sensitive_stub.yml
+
+aws-automations/kasten-backup-user_aws_credentials.yaml
