@@ -1,12 +1,10 @@
 {{- if eq .Values.acm.enabled true }}
-    {{- range .Values.subscriptions -}}
-      {{- if eq .name "advanced-cluster-management" -}}
 ---
 apiVersion: operator.open-cluster-management.io/v1
 kind: MultiClusterHub
 metadata:
     name: multiclusterhub
-    namespace: {{ .namespace }}
+    namespace: open-cluster-management
     annotations:
         argocd.argoproj.io/sync-wave: "3"
         argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
@@ -15,14 +13,14 @@ spec: {}
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: dr-cluster
+  name: passive-cluster
   annotations:
     argocd.argoproj.io/sync-wave: "3"
 ---
 apiVersion: cluster.open-cluster-management.io/v1
 kind: ManagedCluster
 metadata:
-  name: dr-cluster
+  name: passive-cluster
   annotations:
     argocd.argoproj.io/sync-wave: "4"
     argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
@@ -35,11 +33,11 @@ spec:
 apiVersion: agent.open-cluster-management.io/v1
 kind: KlusterletAddonConfig
 metadata:
-  name: dr-cluster
+  name: passive-cluster
   annotations:
     argocd.argoproj.io/sync-wave: "5"
     argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
-  namespace: dr-cluster
+  namespace: passive-cluster
 spec:
   applicationManager:
     enabled: true
@@ -89,6 +87,4 @@ spec:
     kind: Placement
     apiVersion: cluster.open-cluster-management.io/v1beta1
     name: default-gitops-placement
-      {{- end -}}
-    {{- end -}}
 {{- end }}

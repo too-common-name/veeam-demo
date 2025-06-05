@@ -1,6 +1,6 @@
 #!/bin/bash
 
-if [ $# -lt 3 ]; then
+if [ $# -lt 6 ]; then
   echo "Usage: $0 <HUB_OPENSHIFT_URL> <HUB_USERNAME> <HUB_PASSWORD> <MANAGED_OPENSHIFT_URL> <MANAGED_USERNAME> <MANAGED_PASSWORD>"
   exit 1
 fi
@@ -24,13 +24,17 @@ RETRIES=20
 DELAY=10
 GITOPS_NAMESPACE="openshift-gitops-operator"
 
+ANSIBLE_VARS_FILE="./aws-automations/vars/main.yml"
 KEYSFOLDER="sealed-secrets-key"
 PRIVATEKEY="$KEYSFOLDER/mytls.key"
 PUBLICKEY="$KEYSFOLDER/mytls.crt"
 SEALED_SECRETS_NAMESPACE="sealed-secrets"
 SECRETNAME="mycustomkeys"
+S3_CREDENTIALS_FILE="./aws-automations/kasten-backup-user_aws_credentials.yaml"
+S3_KASTEN_SECRET_STUB="./secrets_stub/s3-kasten.yaml"
 S3_KASTEN_SEALED_SECRET="./operators/subscriptions/templates/s3-kasten-sealed.yaml"
-VM_CLOUDINIT_SEALED_SECRET="./vms/fedora-cloudinit-sealed-secret"
+GLOBAL_OPERATORS_VALUE="./operators/subscriptions/global-values.yaml"
+VM_CLOUDINIT_SEALED_SECRET="./vms/fedora-cloudinit-sealed-secret.yaml"
 SKIP_KEY_GEN=false
 
 handle_error() {
@@ -117,7 +121,7 @@ check_argocd_sync() {
 
 check_for_argocd_cluster_secrets() {
   local namespace="openshift-gitops"
-  local expected_secret_1="dr-cluster-application-manager-cluster-secret"
+  local expected_secret_1="passive-cluster-application-manager-cluster-secret"
   local expected_secret_2="local-cluster-application-manager-cluster-secret"
   local attempts=0
   local max_attempts=42
@@ -140,7 +144,6 @@ check_for_argocd_cluster_secrets() {
 
   return 1
 }
-
 
 check_oc_installed() {
   if [ -z "$OC_COMMAND" ]; then
@@ -198,7 +201,6 @@ patch_argocd() {
   fi
 }
 
-
 create_argocd_operators_app() {
   echo -e "${BLUE}🔄 Installing Operators on hub cluster using GitOps...${NC}"
   oc apply -f argocd-apps/hub_operators.yaml &>> $LOG_FILE
@@ -207,12 +209,12 @@ create_argocd_operators_app() {
 
 create_acm_managed_cluster_secret() {
   local attempts=0
-  local max_patch_attempts=30
+  local max_patch_attempts=42
   local import_successful=false
 
   echo -e "${BLUE}🔄 Generating secret to import DR cluster in ACM...${NC}"
   while [ $attempts -lt $max_patch_attempts ]; do
-    oc get ns/dr-cluster &>> $LOG_FILE
+    oc get ns/passive-cluster &>> $LOG_FILE
     
     if [ $? -eq 0 ]; then
       login_to_openshift $MANAGED_OPENSHIFT_URL $MANAGED_USERNAME $MANAGED_PASSWORD &>> "$LOG_FILE"
@@ -220,7 +222,7 @@ create_acm_managed_cluster_secret() {
       login_to_openshift $HUB_OPENSHIFT_URL $HUB_USERNAME $HUB_PASSWORD &>> "$LOG_FILE"
       oc create secret generic auto-import-secret --from-literal=autoImportRetry=5 \
       --from-literal=server="$MANAGED_OPENSHIFT_URL" \
-      --from-literal=token="$token" -n dr-cluster &>> "$LOG_FILE"
+      --from-literal=token="$token" -n passive-cluster &>> "$LOG_FILE"
       handle_error "Unable to create secret to auto-import the managed cluster"
       import_successful=true
       break
@@ -276,12 +278,27 @@ bioc_resource_creation() {
 }
 
 create_sealed_secrets_global_app() {
+  if [[ "$SKIP_KEY_GEN" == true ]]; then
+    echo -e "${YELLOW}⚠️  Skipping app creation for sealed secret because keys already exist.${NC}"
+    return
+  fi
+  
   echo -e "${BLUE}🔄 Installing sealed secrets on all clusters using GitOps...${NC}"
   oc apply -f argocd-apps/global_sealedsecrets.yaml &>> $LOG_FILE
   handle_error "Failed to install sealed secrets on all clusters using GitOps"
 }
 
 generate_sealed_secrets() {
+  if [[ "$SKIP_KEY_GEN" == true ]]; then
+    echo -e "${YELLOW}⚠️  Skipping sealed secret generation because keys already exist.${NC}"
+    return
+  fi
+
+  echo -e "${BLUE}🔄 Filling S3 secret stub...${NC}"
+  local access_key_id = $(yq '.access_key_id' $S3_CREDENTIALS_FILE)
+  local secret_access_key = $(yq '.secret_access_key' $S3_CREDENTIALS_FILE)
+  yq -i ".data.aws_access_key_id = \"$access_key_id\"" $S3_KASTEN_SECRET_STUB
+  yq -i ".data.aws_secret_access_key = \"$secret_access_key\"" $S3_KASTEN_SECRET_STUB
   echo -e "${BLUE}🔄 Generating S3 sealed secret for Kasten...${NC}"
   echo "{{- if eq .Values.kasten.enabled true }}" > "$S3_KASTEN_SEALED_SECRET" 2>> $LOG_FILE
   cat secrets_stub/s3-kasten.yaml | kubeseal --cert "$PUBLICKEY" --format yaml >> "$S3_KASTEN_SEALED_SECRET" 2>> $LOG_FILE
@@ -293,6 +310,10 @@ generate_sealed_secrets() {
 }
 
 push_sealed_secrets() {
+  if [[ "$SKIP_KEY_GEN" == true ]]; then
+    return
+  fi
+
   echo -e "${BLUE}🔄 Pushing S3 sealed secret for Kasten on github...${NC}"
   git add "$S3_KASTEN_SEALED_SECRET" &>> $LOG_FILE
   git add "$VM_CLOUDINIT_SEALED_SECRET" &>> $LOG_FILE
@@ -300,6 +321,63 @@ push_sealed_secrets() {
   handle_error "Failed to commit sealed secret" &>> $LOG_FILE
   git push &>> $LOG_FILE
   handle_error "Failed to push sealed secret"
+}
+
+annotate_storageclass_and_volumesnapshotclass() {
+  echo -e "${BLUE}🔄 Annotating default StorageClass and VolumeSnapshotClass on both clusters..."
+  for CLUSTER in "MANAGED" "HUB"; do
+    if [ "$CLUSTER" == "HUB" ]; then
+      login_to_openshift "$HUB_OPENSHIFT_URL" "$HUB_USERNAME" "$HUB_PASSWORD" &>> "$LOG_FILE"
+    else
+      login_to_openshift "$MANAGED_OPENSHIFT_URL" "$MANAGED_USERNAME" "$MANAGED_PASSWORD" &>> "$LOG_FILE"
+    fi
+
+    DEFAULT_SC_DRIVER=$(oc get storageclass --no-headers | grep '(default)' | awk '{print $3}')
+    SNAPSHOT_CLASS=$(oc get volumesnapshotclass --no-headers | grep $DEFAULT_SC_DRIVER | awk '{print $1}')
+    DEFAULT_STORAGE_CLASS=$(oc get storageclass --no-headers | grep '(default)' | awk '{print $1}')
+
+    if [ -z "$SNAPSHOT_CLASS" ]; then
+      echo -e "${RED}❌ No suitable VolumeSnapshotClass found for StorageClass '$DEFAULT_SC' in $CLUSTER cluster.${NC}"
+      continue
+    fi
+    if [ -z "$DEFAULT_STORAGE_CLASS" ]; then
+      echo -e "${RED}❌ No default StorageClass found in $CLUSTER cluster.${NC}"
+      continue
+    fi
+
+    oc annotate volumesnapshotclass "$SNAPSHOT_CLASS" k10.kasten.io/is-snapshot-class="true" --overwrite &>> $LOG_FILE
+    handle_error "Failed to annotate VolumeSnapshotClass '$SNAPSHOT_CLASS' in $CLUSTER cluster"
+
+    echo -e "${GREEN}✅ Annotated '$SNAPSHOT_CLASS' VolumeSnapshotClass in $CLUSTER cluster.${NC}"
+
+    oc annotate storageclass "$DEFAULT_STORAGE_CLASS" k10.kasten.io/sc-supports-block-mode-exports="true" --overwrite &>> $LOG_FILE
+    handle_error "Failed to annotate StorageClass '$DEFAULT_STORAGE_CLASS' in $CLUSTER cluster"
+
+    echo -e "${GREEN}✅ Annotated '$DEFAULT_STORAGE_CLASS' in $CLUSTER cluster.${NC}"
+  done
+}
+
+add_bucket_info_to_crd() {
+  echo -e "${BLUE}🔄 Checking if bucket info needs to be updated in Kasten CRD...${NC}"
+
+  local region=$(yq '.region' "$ANSIBLE_VARS_FILE")
+  local bucket_name=$(yq '.bucket_name' "$ANSIBLE_VARS_FILE")
+
+  local current_region=$(yq '.kasten.bucket_region' "$GLOBAL_OPERATORS_VALUE")
+  local current_bucket=$(yq '.kasten.bucket_name' "$GLOBAL_OPERATORS_VALUE")
+
+  if [[ "$region" != "$current_region" || "$bucket_name" != "$current_bucket" ]]; then
+    echo -e "${BLUE}🔄 Updating bucket info in Kasten CRD...${NC}"
+    yq -i ".kasten.bucket_name = \"$bucket_name\"" "$GLOBAL_OPERATORS_VALUE"
+    yq -i ".kasten.bucket_region = \"$region\"" "$GLOBAL_OPERATORS_VALUE"
+    git add "$GLOBAL_OPERATORS_VALUE" &>> "$LOG_FILE"
+    git commit -m "chore(automatic): update bucket info" &>> "$LOG_FILE"
+    handle_error "Failed to commit new bucket info" &>> "$LOG_FILE"
+    git push &>> "$LOG_FILE"
+    handle_error "Failed to push new bucket info"
+  else
+    echo -e "${GREEN}✅ Bucket info is up to date. No changes needed.${NC}"
+  fi
 }
 
 create_operator_global_app() {
@@ -343,8 +421,8 @@ create_sealed_secrets_global_app
 
 check_argocd_sync "openshift-gitops" "applications.argoproj.io" "local-cluster-sealedsecrets-operator"
 handle_error "Timeout: ArgoCD ApplicationSet 'local-cluster-sealedsecrets-operator' in namespace 'openshift-gitops' did not become Healthy. Check $LOG_FILE."
-check_argocd_sync "openshift-gitops" "applications.argoproj.io" "dr-cluster-sealedsecrets-operator"
-handle_error "Timeout: ArgoCD ApplicationSet 'dr-cluster-sealedsecrets-operator' in namespace 'openshift-gitops' did not become Healthy. Check $LOG_FILE."
+check_argocd_sync "openshift-gitops" "applications.argoproj.io" "passive-cluster-sealedsecrets-operator"
+handle_error "Timeout: ArgoCD ApplicationSet 'passive-cluster-sealedsecrets-operator' in namespace 'openshift-gitops' did not become Healthy. Check $LOG_FILE."
 
 check_pods "$SEALED_SECRETS_NAMESPACE"
 handle_error "Timeout: Sealed Secrets operator pods in namespace '$SEALED_SECRETS_NAMESPACE' did not become ready. Check $LOG_FILE."
@@ -352,5 +430,7 @@ handle_error "Timeout: Sealed Secrets operator pods in namespace '$SEALED_SECRET
 generate_sealed_secrets 
 push_sealed_secrets
 
+annotate_storageclass_and_volumesnapshotclass
+add_bucket_info_to_crd
 create_operator_global_app
 create_vm_app
