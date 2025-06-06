@@ -61,7 +61,7 @@ spec:
       secret:
         apiVersion: v1
         kind: secret
-        name: "k10-awss3-{{ .Values.kasten.bucket_name }}-secret"
+        name: "k10-awss3-kasten-backup-secret"
         namespace: kasten-io
   type: Location
 {{- end }}
