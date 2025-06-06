@@ -4,3 +4,4 @@ data:
 kind: Secret
 metadata:
   name: fedora-cloudinit-secret
+  namespace: vm-gitops
