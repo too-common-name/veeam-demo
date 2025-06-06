@@ -295,10 +295,10 @@ generate_sealed_secrets() {
   fi
 
   echo -e "${BLUE}🔄 Filling S3 secret stub...${NC}"
-  local access_key_id=$(yq '.access_key_id' $S3_CREDENTIALS_FILE)
-  local secret_access_key=$(yq '.secret_access_key' $S3_CREDENTIALS_FILE)
-  yq -i ".data.aws_access_key_id = \"$access_key_id\"" $S3_KASTEN_SECRET_STUB
-  yq -i ".data.aws_secret_access_key = \"$secret_access_key\"" $S3_KASTEN_SECRET_STUB
+  local access_key_id=$(yq -r '.access_key_id' "$S3_CREDENTIALS_FILE" | tr -d '\n' | base64 -w 0)
+  local secret_access_key=$(yq -r '.secret_access_key' "$S3_CREDENTIALS_FILE" | tr -d '\n' | base64 -w 0)
+  yq -i ".data.aws_access_key_id = \"$access_key_id\"" "$S3_KASTEN_SECRET_STUB"
+  yq -i ".data.aws_secret_access_key = \"$secret_access_key\"" "$S3_KASTEN_SECRET_STUB"
   echo -e "${BLUE}🔄 Generating S3 sealed secret for Kasten...${NC}"
   echo "{{- if eq .Values.kasten.enabled true }}" > "$S3_KASTEN_SEALED_SECRET" 2>> $LOG_FILE
   cat secrets_stub/s3-kasten.yaml | kubeseal --cert "$PUBLICKEY" --format yaml >> "$S3_KASTEN_SEALED_SECRET" 2>> $LOG_FILE
