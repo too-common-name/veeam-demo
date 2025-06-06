@@ -133,7 +133,7 @@ check_for_argocd_cluster_secrets() {
     output=$(oc get secret -n "$namespace" --selector argocd.argoproj.io/secret-type='cluster' -o name 2>/dev/null)
 
     if echo "$output" | grep -q "$expected_secret_1" && echo "$output" | grep -q "$expected_secret_2"; then
-      echo -e "${YELLOW}⚠️  Both ArgoCD cluster secrets are present."
+      echo -e "${GREEN}✅ Both ArgoCD cluster secrets are present."
       return 0
     fi
 
@@ -295,8 +295,8 @@ generate_sealed_secrets() {
   fi
 
   echo -e "${BLUE}🔄 Filling S3 secret stub...${NC}"
-  local access_key_id = $(yq '.access_key_id' $S3_CREDENTIALS_FILE)
-  local secret_access_key = $(yq '.secret_access_key' $S3_CREDENTIALS_FILE)
+  local access_key_id=$(yq '.access_key_id' $S3_CREDENTIALS_FILE)
+  local secret_access_key=$(yq '.secret_access_key' $S3_CREDENTIALS_FILE)
   yq -i ".data.aws_access_key_id = \"$access_key_id\"" $S3_KASTEN_SECRET_STUB
   yq -i ".data.aws_secret_access_key = \"$secret_access_key\"" $S3_KASTEN_SECRET_STUB
   echo -e "${BLUE}🔄 Generating S3 sealed secret for Kasten...${NC}"
