@@ -11,7 +11,7 @@ spec:
     path: vms
     repoURL: https://github.com/too-common-name/veeam-demo.git
     targetRevision: HEAD
-    syncPolicy:
-      automated:
-        prune: true
-        selfHeal: true
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
