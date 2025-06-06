@@ -44,7 +44,7 @@ spec:
 apiVersion: config.kio.kasten.io/v1alpha1
 kind: Profile
 metadata:
-  name: "profile-awss3-{{ .Values.kasten.bucket_name }}"
+  name: "profile-awss3-kasten"
   namespace: kasten-io
   annotations:
     argocd.argoproj.io/sync-wave: "4"

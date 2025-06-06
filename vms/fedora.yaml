@@ -95,7 +95,7 @@ spec:
       exportParameters:
         frequency: "@onDemand"
         profile:
-          name: profile-awss3-kasten-backup
+          name: profile-awss3-kasten
           namespace: kasten-io
         exportData:
           enabled: true
