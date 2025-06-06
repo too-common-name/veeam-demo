@@ -1,0 +1,53 @@
+---
+- name: Setup AWS resources
+  hosts: localhost
+  vars_files:
+    - vars/main.yml
+    - vars/sensitive.yml 
+
+  collections:
+    - amazon.aws
+
+  tasks:
+  - name: Create a S3 bucket
+    amazon.aws.s3_bucket:
+      access_key: "{{ access_key }}"
+      secret_key: "{{ secret_key }}"
+      region: "{{ region }}"
+      name: "{{ bucket_name }}"
+      object_lock_enabled: true
+      state: present
+
+  - name: Create a IAM user
+    amazon.aws.iam_user:
+      access_key: "{{ access_key }}"
+      secret_key: "{{ secret_key }}"
+      name: "{{ iam_user_name }}"
+      state: present
+    
+  - name: Create a IAM policy
+    amazon.aws.iam_policy:
+      access_key: "{{ access_key }}"
+      secret_key: "{{ secret_key }}"
+      iam_type: user
+      iam_name: "{{ iam_user_name }}"
+      policy_name: "{{ iam_policy_name }}"
+      policy_json: "{{ lookup('template', 'template/s3_policy.json.j2') }}"
+      state: present
+    
+  - name: Create user's key
+    community.aws.iam_access_key:
+      access_key: "{{ access_key }}"
+      secret_key: "{{ secret_key }}"
+      user_name: "{{ iam_user_name }}"
+      state: present
+    register: new_user_key_details
+
+  - name: Store new user's AWS credentials to a file if a new key was created
+    ansible.builtin.copy:
+      content: |
+          "access_key_id": "{{ new_user_key_details.access_key_id }}"
+          "secret_access_key": "{{ new_user_key_details.secret_access_key }}"
+      dest: "./{{ iam_user_name }}_aws_credentials.yaml"
+      mode: '0600'
+    when: new_user_key_details.secret_access_key is defined and new_user_key_details.secret_access_key != ""

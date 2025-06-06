@@ -1,0 +1,4 @@
+region: "eu-north-1"
+bucket_name: "test-kasten-backup"
+iam_user_name: "kasten-backup-user"
+iam_policy_name: "kasten-bucket-policy"
