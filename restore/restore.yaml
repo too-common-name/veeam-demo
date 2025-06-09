@@ -4,12 +4,12 @@ metadata:
   name: vm-restore
   namespace: kasten-io
 spec:
-  frequency: "@hourly"
+  frequency: "@onDemand"
   actions:
     - action: import
       importParameters:
         profile:
-          name: profile-awss3-webinar-kasten-backup
+          name: profile-awss3-kasten
           namespace: kasten-io
         receiveString: ""
     - action: restore
